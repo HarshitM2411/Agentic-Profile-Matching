@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AirTribe Match Agent - Final Recommendation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist:wght@400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1326;
+            color: #dae2fd;
+            overflow: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glow-teal {
+            box-shadow: 0 0 20px rgba(45, 212, 191, 0.15);
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .agent-timeline-dot::before {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            background: #57f1db;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 8px #57f1db;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: translateY(-50%) scale(1); }
+            50% { opacity: 0.5; transform: translateY(-50%) scale(1.2); }
+            100% { opacity: 1; transform: translateY(-50%) scale(1); }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#0b1326",
+                        "on-secondary-fixed-variant": "#891933",
+                        "surface-container-highest": "#2d3449",
+                        "on-surface-variant": "#bacac5",
+                        "surface-tint": "#3cddc7",
+                        "primary-fixed-dim": "#3cddc7",
+                        "on-primary-container": "#00574d",
+                        "on-secondary": "#67001f",
+                        "outline": "#859490",
+                        "error-container": "#93000a",
+                        "on-secondary-fixed": "#400010",
+                        "inverse-surface": "#dae2fd",
+                        "surface-container-lowest": "#060e20",
+                        "on-primary": "#003731",
+                        "tertiary": "#d5d7ff",
+                        "background": "#0b1326",
+                        "on-secondary-container": "#ff97a3",
+                        "secondary-fixed": "#ffdadc",
+                        "secondary": "#ffb2b9",
+                        "surface": "#0b1326",
+                        "surface-container-high": "#222a3d",
+                        "secondary-container": "#891933",
+                        "on-primary-fixed-variant": "#005047",
+                        "outline-variant": "#3c4a46",
+                        "surface-container-low": "#131b2e",
+                        "on-background": "#dae2fd",
+                        "on-error": "#690005",
+                        "primary-fixed": "#62fae3",
+                        "on-tertiary-fixed-variant": "#2f3aa3",
+                        "inverse-on-surface": "#283044",
+                        "error": "#ffb4ab",
+                        "on-tertiary": "#131e8c",
+                        "surface-variant": "#2d3449",
+                        "primary": "#57f1db",
+                        "inverse-primary": "#006b5f",
+                        "surface-bright": "#31394d",
+                        "surface-container": "#171f33",
+                        "tertiary-container": "#b3b9ff",
+                        "on-tertiary-fixed": "#000767",
+                        "primary-container": "#2dd4bf",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed": "#00201c",
+                        "tertiary-fixed": "#e0e0ff",
+                        "on-surface": "#dae2fd",
+                        "on-tertiary-container": "#3641a9",
+                        "secondary-fixed-dim": "#ffb2b9",
+                        "tertiary-fixed-dim": "#bdc2ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "sidebar-width": "432px",
+                        "container-padding": "32px",
+                        "stack-gap-sm": "8px",
+                        "stack-gap-lg": "32px",
+                        "stack-gap-md": "16px",
+                        "canvas-width": "1008px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Geist"],
+                        "mono-data": ["Geist"],
+                        "headline-sm": ["Geist"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "mono-data": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="flex h-screen overflow-hidden">
+<!-- Side Navigation (Shared Component Integration) -->
+<aside class="fixed left-0 top-0 h-full w-20 md:w-64 bg-surface-container-low backdrop-blur-md border-r border-outline-variant flex flex-col p-4 gap-stack-gap-md z-50">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary">hub</span>
+</div>
+<div class="hidden md:block">
+<h1 class="font-headline-sm text-headline-sm text-primary">Airtribe AI</h1>
+<p class="font-label-md text-[10px] text-on-surface-variant uppercase tracking-widest">Collaborative Intelligence</p>
+</div>
+</div>
+<nav class="flex-1 space-y-2">
+<div class="bg-secondary-container text-on-secondary-container rounded-lg p-3 flex items-center gap-3 cursor-pointer">
+<span class="material-symbols-outlined">search_check</span>
+<span class="hidden md:inline font-label-md">Active Searches</span>
+</div>
+<div class="text-on-surface-variant hover:bg-surface-container-highest rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-all">
+<span class="material-symbols-outlined">groups</span>
+<span class="hidden md:inline font-label-md">Talent Pool</span>
+</div>
+<div class="text-on-surface-variant hover:bg-surface-container-highest rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-all">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="hidden md:inline font-label-md">Pipeline</span>
+</div>
+<div class="text-on-surface-variant hover:bg-surface-container-highest rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-all">
+<span class="material-symbols-outlined">analytics</span>
+<span class="hidden md:inline font-label-md">Analytics</span>
+</div>
+</nav>
+<div class="mt-auto space-y-2 pt-4 border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all mb-4">
+<span class="material-symbols-outlined">add</span>
+<span class="hidden md:inline font-label-md">New Search</span>
+</button>
+<div class="text-on-surface-variant hover:text-primary p-2 flex items-center gap-3 cursor-pointer text-sm">
+<span class="material-symbols-outlined">settings</span>
+<span class="hidden md:inline">Settings</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col ml-20 md:ml-64 relative">
+<!-- Top Navigation -->
+<header class="h-16 bg-surface-dim border-b border-outline-variant flex justify-between items-center px-gutter z-40">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-md text-headline-md font-bold text-primary">AirTribe Match Agent</h2>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a recruitment manager in a bright, modern office setting, soft natural lighting, high-end photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8xKBPj17xeBpmn2_DvBKpM03wG7JPNJRE-RJzeNj2Dva7K2yGM15hqEx207tyZ7J6lMH8cD8vRksT8WRvtYtC5qIY_qlKXmQR4UffY9IbnbnW_4Jrb45od21O_a94x7U5fDXpouoDljhI2cJQlVGBFW0Cfm5OSX_J8BZnMsukQGwlDMLBsYhKesxwmKGTKLNqv68WdzA4UikgEFjmiCZaZqeUUMe2wKmg_VfzqXyJjLpsf99wUhapaSdKv50I6QRPSzgLIDlESoVF"/>
+</div>
+</div>
+</header>
+<!-- Two-Pane Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Chat Sidebar (30% / 432px) -->
+<section class="w-[sidebar-width] bg-surface-container-low border-r border-outline-variant flex flex-col relative">
+<!-- Thinking Overlay Background -->
+
+<div class="p-6 flex-1 overflow-y-auto space-y-6 relative z-10">
+<!-- Previous Agent Thought -->
+<div class="flex flex-col gap-2 opacity-60">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">smart_toy</span>
+<span class="font-mono-data text-xs uppercase tracking-tighter text-outline">Agent Logic</span>
+</div>
+<div class="bg-surface-container p-3 rounded-xl rounded-tl-none text-body-sm font-mono-data">
+                            &gt; CROSS_REFERENCING_SKILLS_MATRIX...<br/>
+                            &gt; EVALUATING_LEADERSHIP_METRICS...
+                        </div>
+</div>
+<!-- Final Recommendation Bubble -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">smart_toy</span>
+<span class="font-label-md text-primary">AirTribe Agent</span>
+</div>
+<div class="bg-primary-container/10 border border-primary/20 p-4 rounded-2xl rounded-tl-none shadow-lg">
+<p class="font-body-md text-on-surface leading-relaxed">
+                                Based on your criteria, <span class="font-bold text-primary">John Doe</span> is the strongest match for this role.
+                            </p>
+<p class="mt-2 font-body-sm text-on-surface-variant">
+                                He demonstrates exceptional proficiency in the technical stack and has a proven track record of the exact React migrations you specified.
+                            </p>
+</div>
+</div>
+<!-- Thinking Timeline -->
+<div class="border-l border-outline-variant ml-3 pl-6 py-4 space-y-4">
+<div class="relative agent-timeline-dot">
+<span class="font-mono-data text-xs text-primary">RANKING_FINALIZED</span>
+</div>
+<div class="relative">
+<span class="font-mono-data text-xs text-on-surface-variant">INSIGHT_CANVAS_READY</span>
+</div>
+</div>
+</div>
+<!-- Chat Input Area (Disabled in Final Recommendation) -->
+<div class="p-6 border-t border-outline-variant bg-surface-container-low/50 backdrop-blur-md">
+<div class="relative">
+<div class="w-full bg-surface-container-highest/50 border border-outline-variant rounded-xl p-3 pr-12 text-on-surface-variant flex items-center italic">
+                            Search finalized...
+                        </div>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-surface-variant text-on-surface-variant rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Right Insight Canvas (70% / 1008px) -->
+<section class="flex-1 bg-surface-dim overflow-y-auto relative p-stack-gap-lg">
+<div class="max-w-5xl mx-auto space-y-stack-gap-lg">
+<!-- (a) Hero Card for John Doe -->
+<div class="glass-panel p-8 rounded-3xl glow-teal relative overflow-hidden flex flex-col md:flex-row gap-8">
+<!-- Background Glow Decoration -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+<!-- Candidate Visual -->
+<div class="flex flex-col items-center gap-4 relative z-10">
+<div class="relative w-40 h-40">
+<!-- Match Score Ring -->
+<svg class="w-full h-full transform -rotate-90">
+<circle cx="80" cy="80" fill="transparent" r="76" stroke="rgba(255,255,255,0.05)" stroke-width="8"></circle>
+<circle cx="80" cy="80" fill="transparent" r="76" stroke="#57f1db" stroke-dasharray="477" stroke-dashoffset="23.85" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-2 rounded-full overflow-hidden border-2 border-primary/20">
+<img class="w-full h-full object-cover" data-alt="A detailed portrait of a professional male software engineer with a friendly and confident expression, set against a blurred workspace with warm bokeh lights, representing John Doe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_JT6xrwaloOMB5nGAMF6jP2s-xAUYqA-5aVWt5Zh2dvuQUTev6J1O9rznPBeP7M1-no9xbCZ7k646pp3jNJJAE_IwYnTADnVdQ9qmBfEjnuGN-etSZ4MRj-G4D3I4HUrWV01S2mlKPItcB-jx7VGnf4kvxkj3YF1mnR_TlqpJzkwx4fr9TiiMg6J93Zg6XhSNdZnhdPkoLbi6eerCBUm582bgijTplAnjIWnzqmzAlcIrqVHVXa-3GuvuXipqgXL8Dnsse7Hwarr7"/>
+</div>
+<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                                    95% MATCH
+                                </div>
+</div>
+</div>
+<!-- Candidate Info -->
+<div class="flex-1 space-y-4 relative z-10">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-3">
+<h3 class="font-display-lg text-4xl text-on-surface">John Doe</h3>
+<span class="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold uppercase tracking-wider">Hire</span>
+</div>
+<p class="font-headline-sm text-on-surface-variant mt-1">Senior Frontend Architect</p>
+</div>
+<div class="text-right">
+<div class="font-label-md text-outline uppercase tracking-widest text-[10px]">Confidence</div>
+<div class="text-3xl font-headline-md text-primary">Very High</div>
+</div>
+</div>
+<!-- (b) Summary -->
+<div class="bg-surface-container/50 p-5 rounded-2xl border border-outline-variant">
+<p class="font-body-md text-on-surface leading-relaxed italic">
+                                    "John exceeds all must-haves and nice-to-haves. He has led React migrations and is a TS core contributor, offering rare depth in architectural scalability."
+                                </p>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg text-sm border border-outline-variant">React 18+</span>
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg text-sm border border-outline-variant">TypeScript Core</span>
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg text-sm border border-outline-variant">Next.js</span>
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg text-sm border border-outline-variant">Micro-frontends</span>
+</div>
+</div>
+</div>
+<!-- Strength/Gap Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-gap-md">
+<div class="glass-panel p-6 rounded-2xl border-l-4 border-l-primary-container">
+<h4 class="font-headline-sm text-primary-container flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined">trending_up</span>
+                                Key Strengths
+                            </h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-2 text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-sm mt-1">check_circle</span>
+<span>Led migration for 1M+ user platform from Legacy to React 18.</span>
+</li>
+<li class="flex items-start gap-2 text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-sm mt-1">check_circle</span>
+<span>Active contributor to major Open Source UI libraries.</span>
+</li>
+<li class="flex items-start gap-2 text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-sm mt-1">check_circle</span>
+<span>Strong mentorship background with 5+ direct reports.</span>
+</li>
+</ul>
+</div>
+<div class="glass-panel p-6 rounded-2xl border-l-4 border-l-secondary">
+<h4 class="font-headline-sm text-secondary flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined">info</span>
+                                Growth Areas
+                            </h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-2 text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-secondary text-sm mt-1">fiber_manual_record</span>
+<span>Limited recent experience with Python-based backends.</span>
+</li>
+<li class="flex items-start gap-2 text-body-sm text-on-surface">
+<span class="material-symbols-outlined text-secondary text-sm mt-1">fiber_manual_record</span>
+<span>Preference for fully remote teams (Hybrid may require negotiation).</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- (c) Action Bar -->
+<div class="glass-panel p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="flex gap-2">
+<button class="bg-surface-container-highest text-on-surface hover:bg-primary/20 hover:text-primary transition-all px-4 py-2 rounded-xl flex items-center gap-2 font-label-md">
+<span class="material-symbols-outlined">download</span>
+                                Export Report
+                            </button>
+<button class="bg-surface-container-highest text-on-surface hover:bg-primary/20 hover:text-primary transition-all px-4 py-2 rounded-xl flex items-center gap-2 font-label-md">
+<span class="material-symbols-outlined">content_copy</span>
+                                Interview Questions
+                            </button>
+</div>
+<button class="w-full md:w-auto bg-primary text-on-primary px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">calendar_today</span>
+                            Schedule Interview
+                        </button>
+</div>
+<!-- (d) New Search Secondary CTA -->
+<div class="text-center py-8">
+<p class="text-on-surface-variant font-body-sm mb-4">Want to explore more options or refine the criteria?</p>
+<button class="inline-flex items-center gap-2 text-primary hover:underline font-label-md">
+<span class="material-symbols-outlined">refresh</span>
+                            Start New Candidate Search
+                        </button>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer (Shared Component Integration) -->
+<footer class="bg-surface-container-lowest border-t border-outline-variant flex justify-between items-center px-gutter py-2 w-full h-10 z-40">
+<span class="font-label-md text-on-surface-variant">© 2024 AirTribe AI • Systems Active</span>
+<div class="flex gap-4">
+<a class="font-label-md text-on-surface-variant hover:text-primary transition-opacity" href="#">Privacy</a>
+<a class="font-label-md text-on-surface-variant hover:text-primary transition-opacity" href="#">Terms</a>
+<a class="font-label-md text-on-surface-variant hover:text-primary transition-opacity" href="#">Support</a>
+</div>
+</footer>
+</main>
+<!-- Success Feedback Notification (Micro-interaction) -->
+<div class="fixed bottom-12 right-12 glass-panel px-6 py-4 rounded-2xl flex items-center gap-3 translate-y-24 opacity-0 transition-all duration-500 z-[100]" id="toast">
+<div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary">check</span>
+</div>
+<div>
+<p class="font-label-md text-on-surface">Recommendation Finalized</p>
+<p class="text-[10px] text-on-surface-variant">AI has completed the talent evaluation.</p>
+</div>
+</div>
+<script>
+        // Trigger toast on load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.remove('translate-y-24', 'opacity-0');
+                
+                setTimeout(() => {
+                    toast.classList.add('translate-y-24', 'opacity-0');
+                }, 4000);
+            }, 1000);
+        });
+
+        // Simple button active state visual
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mousedown', () => btn.classList.add('scale-[0.98]'));
+            btn.addEventListener('mouseup', () => btn.classList.remove('scale-[0.98]'));
+            btn.addEventListener('mouseleave', () => btn.classList.remove('scale-[0.98]'));
+        });
+    </script>
+</body></html>

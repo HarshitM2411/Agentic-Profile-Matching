@@ -1,0 +1,26 @@
+Alice Johnson
+Email: alice.johnson@email.com | LinkedIn: linkedin.com/in/alicejohnson
+
+SUMMARY
+Senior Python Backend Engineer with 6 years of experience designing and building scalable REST APIs, microservices, and data pipelines. Proven track record of delivering high-availability systems in fast-paced startup and enterprise environments.
+
+SKILLS
+Python, FastAPI, Django, PostgreSQL, Redis, Docker, Kubernetes, REST APIs, GraphQL, AWS (EC2, S3, RDS), CI/CD, Git, SQLAlchemy, Celery
+
+EXPERIENCE
+
+Senior Backend Engineer — TechCorp, Bangalore (2021–Present)
+- Designed and shipped a FastAPI microservice handling 50k requests/day with 99.9% uptime.
+- Reduced database query latency by 40% through indexing and query optimization in PostgreSQL.
+- Led migration from monolith to microservices using Docker and Kubernetes.
+
+Backend Engineer — StartupXYZ, Remote (2019–2021)
+- Built REST APIs for a SaaS platform serving 5000+ users using Django and PostgreSQL.
+- Implemented async task queues with Celery and Redis for background processing.
+- Maintained CI/CD pipelines using GitHub Actions and deployed on AWS EC2.
+
+EDUCATION
+B.Tech in Computer Science — BITS Pilani (2015–2019)
+
+CERTIFICATIONS
+AWS Certified Developer – Associate (2022)

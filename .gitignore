@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+data/vector_store/*
+!data/vector_store/.gitkeep
+reports/*
+!reports/.gitkeep
