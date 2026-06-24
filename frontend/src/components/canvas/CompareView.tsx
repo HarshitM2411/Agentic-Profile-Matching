@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Radar,
   RadarChart,
@@ -6,18 +7,64 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import { RADAR_DATA } from '../../data/mockData'
-import type { Candidate } from '../../types/agent'
+import type { Candidate, JobRequirements } from '../../types/agent'
 import { MatchScoreRing } from '../ui/MatchScoreRing'
 import { Icon } from '../ui/Icon'
+
+const CHART_COLORS = ['#57f1db', '#818cf8', '#fb7185']
 
 interface CompareViewProps {
   candidates: Candidate[]
   scores: Record<string, number>
+  requirements: JobRequirements
+  insight?: string
 }
 
-export function CompareView({ candidates, scores }: CompareViewProps) {
+function buildRadarData(
+  candidates: Candidate[],
+  requirements: JobRequirements,
+  scores: Record<string, number>,
+) {
+  const dimensions = [
+    ...requirements.must_have,
+    ...requirements.nice_to_have,
+  ].slice(0, 5)
+
+  if (dimensions.length === 0) {
+    return { data: [], keys: [] as string[] }
+  }
+
+  const keys = candidates.slice(0, 3).map((c) => c.name.split(' ')[0])
+
+  const data = dimensions.map((skill) => {
+    const row: Record<string, string | number> = { skill }
+    candidates.slice(0, 3).forEach((c, i) => {
+      const base = Math.round((scores[c.id] ?? c.score) * 100)
+      const hasSkill = c.skills.some(
+        (s) => s.toLowerCase().includes(skill.toLowerCase().split(' ')[0]),
+      )
+      row[keys[i]] = hasSkill ? Math.min(base + 8, 100) : Math.max(base - 20, 20)
+    })
+    return row
+  })
+
+  return { data, keys }
+}
+
+export function CompareView({
+  candidates,
+  scores,
+  requirements,
+  insight,
+}: CompareViewProps) {
   const top3 = candidates.slice(0, 3)
+  const { data: radarData, keys: radarKeys } = useMemo(
+    () => buildRadarData(top3, requirements, scores),
+    [top3, requirements, scores],
+  )
+
+  const top = top3[0]
+  const runnerUp = top3[1]
 
   return (
     <div className="space-y-stack-gap-lg">
@@ -36,7 +83,6 @@ export function CompareView({ candidates, scores }: CompareViewProps) {
                 key={c.id}
                 className="bg-surface-container border border-outline-variant rounded-2xl p-5 text-center hover:border-primary/30 transition-all glow-teal"
               >
-                {/* Avatar with ring — score label shown as separate badge, not inside ring */}
                 <div className="flex flex-col items-center mb-3 gap-2">
                   <div className="relative">
                     <MatchScoreRing score={scores[c.id] ?? c.score} size={80} showLabel={false} />
@@ -70,58 +116,50 @@ export function CompareView({ candidates, scores }: CompareViewProps) {
           })}
         </div>
 
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={RADAR_DATA} cx="50%" cy="50%" outerRadius="75%">
-              <PolarGrid stroke="rgba(255,255,255,0.1)" />
-              <PolarAngleAxis
-                dataKey="skill"
-                tick={{ fill: '#bacac5', fontSize: 12 }}
-              />
-              <Radar
-                name="John"
-                dataKey="John"
-                stroke="#57f1db"
-                fill="#57f1db"
-                fillOpacity={0.2}
-                strokeWidth={2}
-              />
-              <Radar
-                name="Jane"
-                dataKey="Jane"
-                stroke="#818cf8"
-                fill="#818cf8"
-                fillOpacity={0.15}
-                strokeWidth={2}
-              />
-              <Radar
-                name="Alex"
-                dataKey="Alex"
-                stroke="#fb7185"
-                fill="#fb7185"
-                fillOpacity={0.15}
-                strokeWidth={2}
-              />
-              <Legend
-                wrapperStyle={{ color: '#bacac5', fontSize: 12 }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
+        {radarData.length > 0 && (
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+                <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                <PolarAngleAxis
+                  dataKey="skill"
+                  tick={{ fill: '#bacac5', fontSize: 12 }}
+                />
+                {radarKeys.map((key, i) => (
+                  <Radar
+                    key={key}
+                    name={key}
+                    dataKey={key}
+                    stroke={CHART_COLORS[i]}
+                    fill={CHART_COLORS[i]}
+                    fillOpacity={0.2}
+                    strokeWidth={2}
+                  />
+                ))}
+                <Legend wrapperStyle={{ color: '#bacac5', fontSize: 12 }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
-      <div className="glass-panel rounded-2xl p-6 border-l-4 border-l-primary">
-        <h4 className="font-headline-sm text-primary mb-3 flex items-center gap-2">
-          <Icon name="lightbulb" />
-          Why John ranks higher
-        </h4>
-        <p className="text-body-md text-on-surface leading-relaxed">
-          John ranks higher because he meets <strong className="text-primary">all must-have requirements</strong> including TypeScript, with 5 years of React experience. Jane has strong React skills but lacks TypeScript — a gap that becomes critical when TypeScript is required.
-        </p>
-        <blockquote className="mt-4 pl-4 border-l-2 border-primary/40 text-body-sm text-on-surface-variant italic">
-          "Built production React + TypeScript apps serving 1M+ users" — John Doe resume
-        </blockquote>
-      </div>
+      {(insight || (top && runnerUp)) && (
+        <div className="glass-panel rounded-2xl p-6 border-l-4 border-l-primary">
+          <h4 className="font-headline-sm text-primary mb-3 flex items-center gap-2">
+            <Icon name="lightbulb" />
+            {top ? `Why ${top.name} ranks higher` : 'Comparison insight'}
+          </h4>
+          <p className="text-body-md text-on-surface leading-relaxed whitespace-pre-line">
+            {insight ??
+              `${top.name} leads with a ${Math.round((scores[top.id] ?? top.score) * 100)}% match score versus ${runnerUp?.name ?? 'others'}. Review strengths and gaps in each candidate card above.`}
+          </p>
+          {top?.evidence?.[0] && (
+            <blockquote className="mt-4 pl-4 border-l-2 border-primary/40 text-body-sm text-on-surface-variant italic">
+              {top.evidence[0]}
+            </blockquote>
+          )}
+        </div>
+      )}
     </div>
   )
 }

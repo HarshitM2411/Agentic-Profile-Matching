@@ -9,9 +9,9 @@ from contextlib import contextmanager
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
 sys.path.insert(0, str(BASE_DIR))
 
 from fastapi import FastAPI, HTTPException
@@ -77,6 +77,22 @@ class ChatResponse(BaseModel):
 
 # ── Helper: build a human-readable assistant message from state ───────────────
 
+def _requirements_title(req: dict) -> str:
+    """Human-readable role summary from parsed job requirements."""
+    if not req:
+        return "your role"
+    parts = []
+    if req.get("role_level"):
+        parts.append(str(req["role_level"]))
+    if req.get("domain"):
+        parts.append(str(req["domain"]))
+    title = " ".join(parts) if parts else "your role"
+    must = req.get("must_have") or []
+    if must:
+        title += " — " + ", ".join(str(s) for s in must[:4])
+    return title
+
+
 def _build_assistant_message(state: AgentState) -> str:
     """Summarise the latest agent output into a chat message for the frontend."""
     intent = state.get("current_intent", "")
@@ -84,6 +100,7 @@ def _build_assistant_message(state: AgentState) -> str:
     scores = state.get("candidate_scores", {})
     match_reports = state.get("match_reports", {})
     final_decision = state.get("final_decision", {})
+    requirements = state.get("job_requirements", {})
 
     # Check if the latest conversation turn has an assistant reply (from direct_action)
     history = state.get("conversation_history", [])
@@ -98,6 +115,14 @@ def _build_assistant_message(state: AgentState) -> str:
             lines.append(f"- **{cid}**: {decision} (score: {score:.2f})")
         return "\n".join(lines)
 
+    if shortlist and intent == "new_search":
+        title = _requirements_title(requirements)
+        count = len(shortlist)
+        return (
+            f"I parsed your requirements and screened resumes. "
+            f"Here are your top {count} matches for {title}."
+        )
+
     if shortlist:
         round_num = state.get("screening_round", 1)
         lines = [f"**Screening Round {round_num} Complete**\n"]
@@ -105,14 +130,16 @@ def _build_assistant_message(state: AgentState) -> str:
             score = scores.get(cid, 0)
             rec = match_reports.get(cid, {}).get("hire_recommendation", "-")
             lines.append(f"#{rank} **{cid}** — score: {score:.2f} [{rec}]")
-        lines.append("\nYou can now refine requirements, compare candidates, or type 'finalize'.")
+        lines.append(
+            "\nYou can refine requirements, compare candidates, or type "
+            "'Give me the final recommendation'."
+        )
         return "\n".join(lines)
 
     if intent in ("compare_candidates", "explain_ranking", "generate_questions"):
-        # direct_action node sets the response in direct_response; fall back gracefully
         return "Action completed. Check the canvas for details."
 
-    return "Processing complete. Ask a question or type 'finalize'."
+    return "Processing complete. Ask a question or request a final recommendation."
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -130,9 +157,18 @@ def chat(req: ChatRequest):
     state: AgentState = _sessions.get(session_id) or initial_state()
 
     # Inject the user message
+    _FINALIZE_KEYWORDS = (
+        "finalize",
+        "final recommendation",
+        "final decision",
+        "hire decision",
+        "make a decision",
+        "who should i hire",
+    )
+    msg_lower = req.message.strip().lower()
     state["current_query"] = req.message.strip()
     state["criteria_updated"] = False
-    state["finalize_requested"] = req.message.strip().lower() == "finalize"
+    state["finalize_requested"] = any(kw in msg_lower for kw in _FINALIZE_KEYWORDS)
 
     graph = get_graph()
 
@@ -148,6 +184,15 @@ def chat(req: ChatRequest):
     _sessions[session_id] = result
 
     message = _build_assistant_message(result)
+
+    # Append assistant reply so the frontend can render full conversation history
+    if message and (
+        not result.get("conversation_history")
+        or result["conversation_history"][-1].get("role") != "assistant"
+        or result["conversation_history"][-1].get("content") != message
+    ):
+        result["conversation_history"].append({"role": "assistant", "content": message})
+        _sessions[session_id] = result
 
     # Serialise state (TypedDict → plain dict is already JSON-serialisable)
     return ChatResponse(

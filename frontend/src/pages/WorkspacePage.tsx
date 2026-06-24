@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { useAgentStore } from '../store/agentStore'
@@ -10,8 +10,9 @@ import { CompareView } from '../components/canvas/CompareView'
 import { ExplainabilityPanel } from '../components/canvas/ExplainabilityPanel'
 import { RefineOverlay, RefineSummary } from '../components/canvas/RefineView'
 import { FinalRecommendationView } from '../components/canvas/FinalRecommendationView'
-import { INTERVIEW_QUESTIONS } from '../data/mockData'
-import type { MatchReport } from '../types/agent'
+import { THINKING_STEPS } from '../data/uiConstants'
+import { buildRefineSummaryChanges } from '../services/stateMapper'
+import type { ChatMessage, MatchReport } from '../types/agent'
 
 export function WorkspacePage() {
   const navigate = useNavigate()
@@ -25,12 +26,14 @@ export function WorkspacePage() {
     requirementsVersion,
     screeningRound,
     canvasView,
+    isLoading,
     isReranking,
     rankingDelta,
     matchReports,
     finalDecision,
     topCandidateId,
     explainCandidateId,
+    interviewQuestions,
     sendMessage,
     toggleRequirement,
     setExplainCandidate,
@@ -38,10 +41,30 @@ export function WorkspacePage() {
   } = useAgentStore()
 
   useEffect(() => {
-    if (candidateShortlist.length === 0) {
+    if (!isLoading && candidateShortlist.length === 0 && conversationHistory.length === 0) {
       navigate('/')
     }
-  }, [candidateShortlist.length, navigate])
+  }, [isLoading, candidateShortlist.length, conversationHistory.length, navigate])
+
+  const loadingMessage: ChatMessage = useMemo(
+    () => ({
+      id: 'loading',
+      role: 'agent',
+      content: 'Analyzing resumes and ranking candidates…',
+      thinkingSteps: THINKING_STEPS.map((label, i) => ({
+        id: `step-${i}`,
+        label,
+        status: i < THINKING_STEPS.length - 1 ? 'active' : 'pending',
+      })),
+    }),
+    [],
+  )
+
+  const displayMessages = isLoading
+    ? [...conversationHistory, loadingMessage]
+    : conversationHistory
+
+  const refineChanges = buildRefineSummaryChanges(rankingDelta, candidates)
 
   const top3Candidates = candidateShortlist
     .slice(0, 3)
@@ -50,7 +73,6 @@ export function WorkspacePage() {
 
   const explainCandidate = explainCandidateId ? candidates[explainCandidateId] : null
 
-  // Build a fallback report from candidate data if a formal report is missing
   const explainReport: MatchReport | null = explainCandidateId
     ? matchReports[explainCandidateId] ?? (() => {
         const c = candidates[explainCandidateId]
@@ -72,18 +94,31 @@ export function WorkspacePage() {
       })()
     : null
 
-  // Only show "vs Jane Smith" callout when in explicit explain mode
-  const explainCompareName = currentIntent === 'explain_ranking' ? 'Jane Smith' : undefined
+  const compareInsight = [...conversationHistory]
+    .reverse()
+    .find((m) => m.role === 'agent')?.content
+
+  const explainCompareName =
+    currentIntent === 'explain_ranking' && candidateShortlist[1]
+      ? candidates[candidateShortlist[1]]?.name
+      : undefined
 
   const handleCopyQuestions = () => {
-    const id = explainCandidateId ?? 'john_doe'
-    const questions = INTERVIEW_QUESTIONS[id] ?? INTERVIEW_QUESTIONS.john_doe ?? []
+    const id = explainCandidateId ?? topCandidateId ?? candidateShortlist[0]
+    const questions = id ? interviewQuestions[id] ?? [] : []
     navigator.clipboard.writeText(questions.join('\n'))
   }
 
   const renderCanvas = () => {
     if (canvasView === 'compare') {
-      return <CompareView candidates={top3Candidates} scores={candidateScores} />
+      return (
+        <CompareView
+          candidates={top3Candidates}
+          scores={candidateScores}
+          requirements={jobRequirements}
+          insight={compareInsight}
+        />
+      )
     }
 
     if (canvasView === 'recommendation' && topCandidateId) {
@@ -103,7 +138,7 @@ export function WorkspacePage() {
           otherCandidates={others}
           onCopyQuestions={handleCopyQuestions}
           onNewSearch={() => {
-            resetSession()
+            void resetSession()
             navigate('/')
           }}
         />
@@ -112,31 +147,14 @@ export function WorkspacePage() {
 
     return (
       <div className="space-y-stack-gap-lg">
-        {Object.keys(rankingDelta).length > 0 && (
-          <RefineSummary
-            changes={[
-              {
-                name: 'Jane Smith',
-                from: 2,
-                to: 5,
-                reason: rankingDelta.jane_smith?.reason ?? '',
-              },
-              {
-                name: 'John Doe',
-                from: 1,
-                to: 1,
-                reason: 'Stays #1 — full match on all must-haves',
-              },
-            ]}
-          />
-        )}
+        {refineChanges.length > 0 && <RefineSummary changes={refineChanges} />}
 
         <JobRequirementsCard
           requirements={jobRequirements}
           version={requirementsVersion}
           editable
           onToggle={toggleRequirement}
-          animatingSkill={isReranking ? 'TypeScript' : null}
+          animatingSkill={isReranking ? jobRequirements.nice_to_have[0] : null}
         />
         <ScreeningFunnel activeRound={screeningRound} />
         <CandidateLeaderboard
@@ -157,9 +175,9 @@ export function WorkspacePage() {
   return (
     <div className="flex-1 flex overflow-hidden relative">
       <ChatPanel
-        messages={conversationHistory}
+        messages={displayMessages}
         onSend={sendMessage}
-        disabled={canvasView === 'recommendation'}
+        disabled={isLoading || canvasView === 'recommendation'}
       />
 
       <section className="flex-1 bg-surface-dim overflow-y-auto relative p-stack-gap-lg custom-scrollbar">

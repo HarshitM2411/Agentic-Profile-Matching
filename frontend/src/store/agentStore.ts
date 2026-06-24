@@ -1,223 +1,162 @@
 import { create } from 'zustand'
 import type { AgentState, CanvasView, ChatMessage, Intent } from '../types/agent'
+import { SUGGESTION_CHIPS, THINKING_STEPS } from '../data/uiConstants'
 import {
-  DEFAULT_REQUIREMENTS,
-  INITIAL_SHORTLIST,
-  INTERVIEW_QUESTIONS,
-  MATCH_REPORTS,
-  MOCK_CANDIDATES,
-  REFINED_DELTAS,
-  REFINED_REQUIREMENTS,
-  REFINED_SCORES,
-  REFINED_SHORTLIST,
-  THINKING_STEPS,
-} from '../data/mockData'
+  clearStoredSessionId,
+  deleteSession,
+  getStoredSessionId,
+  sendChatMessage,
+  storeSessionId,
+} from '../services/api'
+import { mapBackendState } from '../services/stateMapper'
 
 const uid = () => crypto.randomUUID()
 
 interface AgentStore extends AgentState {
-  startSearch: (query: string) => void
-  sendMessage: (content: string) => void
+  startSearch: (query: string) => Promise<void>
+  sendMessage: (content: string) => Promise<void>
   setCanvasView: (view: CanvasView) => void
   toggleRequirement: (skill: string) => void
-  resetSession: () => void
+  resetSession: () => Promise<void>
   dismissToast: () => void
   explainCandidateId: string | null
   setExplainCandidate: (id: string | null) => void
 }
 
-const initialScores = Object.fromEntries(
-  INITIAL_SHORTLIST.map((id) => [id, MOCK_CANDIDATES[id].score]),
-)
+const emptyRequirements = (): AgentState['jobRequirements'] => ({
+  must_have: [],
+  nice_to_have: [],
+  role_level: '',
+  domain: '',
+})
 
 const createInitialState = (): AgentState => ({
+  sessionId: getStoredSessionId(),
   conversationHistory: [],
   currentIntent: '',
   canvasView: 'workspace',
   rawJd: '',
-  jobRequirements: DEFAULT_REQUIREMENTS,
-  requirementsVersion: 1,
+  jobRequirements: emptyRequirements(),
+  requirementsVersion: 0,
   candidateShortlist: [],
   candidateScores: {},
-  candidates: MOCK_CANDIDATES,
+  candidates: {},
   rankingDelta: {},
-  matchReports: MATCH_REPORTS,
-  interviewQuestions: INTERVIEW_QUESTIONS,
+  matchReports: {},
+  interviewQuestions: {},
   screeningRound: 1,
   finalDecision: null,
   topCandidateId: null,
+  isLoading: false,
   isReranking: false,
+  error: null,
   toast: null,
 })
+
+function isRefineMessage(content: string): boolean {
+  const lower = content.toLowerCase()
+  return (
+    lower.includes('must-have') ||
+    lower.includes('must have') ||
+    lower.includes('not optional') ||
+    lower.includes('re-rank') ||
+    lower.includes('rerank')
+  )
+}
+
+
+async function runAgentTurn(
+  set: (partial: Partial<AgentStore> | ((s: AgentStore) => Partial<AgentStore>)) => void,
+  get: () => AgentStore,
+  message: string,
+  options?: { isRefine?: boolean; isNewSearch?: boolean },
+) {
+  const sessionId = get().sessionId ?? getStoredSessionId()
+
+  set({
+    isLoading: true,
+    error: null,
+    isReranking: options?.isRefine ?? false,
+    ...(options?.isNewSearch ? { canvasView: 'workspace' as CanvasView } : {}),
+  })
+
+  try {
+    const response = await sendChatMessage(message, sessionId ?? undefined)
+    const mapped = mapBackendState(response.state, response.message)
+
+    storeSessionId(response.session_id)
+
+    set({
+      ...mapped,
+      sessionId: response.session_id,
+      explainCandidateId: mapped.explainCandidateId ?? null,
+      isLoading: false,
+      isReranking: false,
+      error: null,
+    })
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'Request failed'
+    const agentMsg: ChatMessage = {
+      id: uid(),
+      role: 'agent',
+      content: `Something went wrong while contacting the agent backend.\n\n${detail}\n\nMake sure the API server is running: \`python api_server.py\``,
+    }
+    set((s) => ({
+      isLoading: false,
+      isReranking: false,
+      error: detail,
+      conversationHistory: [...s.conversationHistory, agentMsg],
+    }))
+  }
+}
 
 export const useAgentStore = create<AgentStore>((set, get) => ({
   ...createInitialState(),
   explainCandidateId: null,
 
-  startSearch: (query: string) => {
-    const userMsg: ChatMessage = { id: uid(), role: 'user', content: query }
-    const agentMsg: ChatMessage = {
-      id: uid(),
-      role: 'agent',
-      content:
-        'I parsed your requirements and scanned 100 resumes. Here are your top matches for Senior Frontend Engineer — React with 3+ years experience.',
-      quickActions: ['Compare top 3', 'Add TypeScript as must-have', 'Show interview questions'],
-      thinkingSteps: THINKING_STEPS.map((label, i) => ({
-        id: `step-${i}`,
-        label,
-        status: 'complete' as const,
-      })),
+  startSearch: async (query: string) => {
+    const trimmed = query.trim()
+    if (!trimmed) return
+
+    // Delete old backend session so the agent starts from a clean slate.
+    const oldSessionId = get().sessionId ?? getStoredSessionId()
+    if (oldSessionId) {
+      try { await deleteSession(oldSessionId) } catch { /* ignore — session may already be gone */ }
     }
+    clearStoredSessionId()
+
+    const userMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed }
 
     set({
-      rawJd: query,
+      sessionId: null,
+      rawJd: trimmed,
       currentIntent: 'new_search',
       canvasView: 'workspace',
-      conversationHistory: [userMsg, agentMsg],
-      jobRequirements: DEFAULT_REQUIREMENTS,
-      requirementsVersion: 1,
-      candidateShortlist: INITIAL_SHORTLIST,
-      candidateScores: initialScores,
-      screeningRound: 1,
+      conversationHistory: [userMsg],
+      candidateShortlist: [],
+      candidateScores: {},
+      candidates: {},
       rankingDelta: {},
+      matchReports: {},
       finalDecision: null,
       topCandidateId: null,
+      requirementsVersion: 0,
+      error: null,
     })
+
+    await runAgentTurn(set, get, trimmed, { isNewSearch: true })
   },
 
-  sendMessage: (content: string) => {
-    const state = get()
-    const lower = content.toLowerCase()
-    const userMsg: ChatMessage = { id: uid(), role: 'user', content }
+  sendMessage: async (content: string) => {
+    const trimmed = content.trim()
+    if (!trimmed || get().isLoading) return
 
-    if (lower.includes('compare') && lower.includes('top')) {
-      const agentMsg: ChatMessage = {
-        id: uid(),
-        role: 'agent',
-        content: 'Here is a side-by-side comparison of your top 3 candidates against the job requirements.',
-        quickActions: ['Why did John rank higher than Jane?', 'Add TypeScript as must-have'],
-      }
-      set({
-        conversationHistory: [...state.conversationHistory, userMsg, agentMsg],
-        currentIntent: 'compare_candidates',
-        canvasView: 'compare',
-      })
-      return
-    }
+    const userMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed }
+    set((s) => ({
+      conversationHistory: [...s.conversationHistory, userMsg],
+    }))
 
-    if (lower.includes('why') && (lower.includes('john') || lower.includes('rank'))) {
-      const agentMsg: ChatMessage = {
-        id: uid(),
-        role: 'agent',
-        content:
-          'John ranks higher than Jane primarily because he meets all must-haves including TypeScript, while Jane lacks TypeScript experience. See the full explainability breakdown.',
-        quickActions: ['Add TypeScript as must-have', 'Compare top 3'],
-      }
-      set({
-        conversationHistory: [...state.conversationHistory, userMsg, agentMsg],
-        currentIntent: 'explain_ranking',
-        canvasView: 'explain',
-        explainCandidateId: 'john_doe',
-      })
-      return
-    }
-
-    if (lower.includes('typescript') && (lower.includes('must') || lower.includes('re-rank'))) {
-      set({
-        conversationHistory: [...state.conversationHistory, userMsg],
-        isReranking: true,
-        canvasView: 'refine',
-      })
-
-      setTimeout(() => {
-        const agentMsg: ChatMessage = {
-          id: uid(),
-          role: 'agent',
-          content:
-            'Done — TypeScript is now a must-have. 3 candidates dropped in score. Jane moved from #2 to #5 (missing TypeScript). John stays #1 with a full match.',
-          quickActions: ['Compare top 3', 'Give me the final recommendation'],
-        }
-        set({
-          conversationHistory: [...get().conversationHistory, agentMsg],
-          currentIntent: 'refine_requirements',
-          canvasView: 'workspace',
-          jobRequirements: REFINED_REQUIREMENTS,
-          requirementsVersion: 2,
-          candidateShortlist: REFINED_SHORTLIST,
-          candidateScores: REFINED_SCORES,
-          rankingDelta: REFINED_DELTAS,
-          isReranking: false,
-          toast: {
-            message: 'Rankings updated',
-            subtitle: 'Based on your new criteria',
-          },
-        })
-      }, 1800)
-      return
-    }
-
-    if (lower.includes('interview') || lower.includes('questions')) {
-      // Try to extract a specific candidate name from the query
-      const candidateEntries = Object.entries(MOCK_CANDIDATES)
-      const targetCandidate =
-        candidateEntries.find(([, c]) => lower.includes(c.name.toLowerCase()))?.[1] ??
-        MOCK_CANDIDATES.john_doe
-      const questions = INTERVIEW_QUESTIONS[targetCandidate.id] ??
-        INTERVIEW_QUESTIONS.john_doe
-      const agentMsg: ChatMessage = {
-        id: uid(),
-        role: 'agent',
-        content: `Here are ${questions.length} tailored screening questions for ${targetCandidate.name}:\n\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`,
-        quickActions: ['Give me the final recommendation'],
-      }
-      set({
-        conversationHistory: [...state.conversationHistory, userMsg, agentMsg],
-        currentIntent: 'generate_questions',
-      })
-      return
-    }
-
-    if (lower.includes('final') || lower.includes('recommendation')) {
-      const agentMsg: ChatMessage = {
-        id: uid(),
-        role: 'agent',
-        content:
-          'Based on your criteria, John Doe is the strongest match for this role. He demonstrates exceptional proficiency in the technical stack and has a proven track record of the exact React migrations you specified.',
-      }
-      set({
-        conversationHistory: [...state.conversationHistory, userMsg, agentMsg],
-        currentIntent: 'finalize',
-        canvasView: 'recommendation',
-        screeningRound: 3,
-        finalDecision: {
-          john_doe: 'HIRE',
-          jane_smith: 'BORDERLINE',
-          alex_kumar: 'NO-HIRE',
-          priya_nair: 'NO-HIRE',
-          sam_wilson: 'NO-HIRE',
-        },
-        topCandidateId: 'john_doe',
-        toast: {
-          message: 'Recommendation Finalized',
-          subtitle: 'AI has completed the talent evaluation.',
-        },
-      })
-      return
-    }
-
-    if (lower.includes('react') || lower.includes('find')) {
-      get().startSearch(content)
-      return
-    }
-
-    const agentMsg: ChatMessage = {
-      id: uid(),
-      role: 'agent',
-      content:
-        'I can help you search candidates, compare matches, explain rankings, refine requirements, or give a final hire recommendation. Try one of the quick actions below.',
-      quickActions: ['Compare top 3', 'Add TypeScript as must-have', 'Give me the final recommendation'],
-    }
-    set({ conversationHistory: [...state.conversationHistory, userMsg, agentMsg] })
+    await runAgentTurn(set, get, trimmed, { isRefine: isRefineMessage(trimmed) })
   },
 
   setCanvasView: (view) => set({ canvasView: view }),
@@ -228,36 +167,44 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     const inNice = jobRequirements.nice_to_have.includes(skill)
 
     if (inNice) {
-      get().sendMessage(`Make ${skill} a must-have, not optional`)
+      void get().sendMessage(`Make ${skill} a must-have, not optional`)
       return
     }
 
     if (inMust) {
-      set({
-        jobRequirements: {
-          ...jobRequirements,
-          must_have: jobRequirements.must_have.filter((s) => s !== skill),
-          nice_to_have: [...jobRequirements.nice_to_have, skill],
-        },
-      })
+      void get().sendMessage(`Move ${skill} from must-have to nice-to-have`)
     }
   },
 
-  resetSession: () =>
-    set({ ...createInitialState(), explainCandidateId: null }),
+  resetSession: async () => {
+    const sessionId = get().sessionId ?? getStoredSessionId()
+    if (sessionId) {
+      try {
+        await deleteSession(sessionId)
+      } catch {
+        // ignore — session may already be gone
+      }
+    }
+    clearStoredSessionId()
+    set({ ...createInitialState(), explainCandidateId: null })
+  },
 
   dismissToast: () => set({ toast: null }),
 
-  setExplainCandidate: (id) => set({ explainCandidateId: id, canvasView: id ? 'explain' : 'workspace' }),
+  setExplainCandidate: (id) =>
+    set({ explainCandidateId: id, canvasView: id ? 'explain' : 'workspace' }),
 }))
 
 export function detectIntent(message: string): Intent {
   const lower = message.toLowerCase()
   if (lower.includes('compare')) return 'compare_candidates'
   if (lower.includes('why') || lower.includes('explain')) return 'explain_ranking'
-  if (lower.includes('typescript') || lower.includes('must-have')) return 'refine_requirements'
+  if (lower.includes('must-have') || lower.includes('must have')) return 'refine_requirements'
   if (lower.includes('interview') || lower.includes('questions')) return 'generate_questions'
-  if (lower.includes('final') || lower.includes('recommendation')) return 'finalize'
-  if (lower.includes('find') || lower.includes('react')) return 'new_search'
+  if (lower.includes('final') || lower.includes('recommendation') || lower === 'finalize')
+    return 'finalize'
+  if (lower.includes('find') || lower.length > 10) return 'new_search'
   return ''
 }
+
+export { SUGGESTION_CHIPS, THINKING_STEPS }

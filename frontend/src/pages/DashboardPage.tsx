@@ -1,20 +1,21 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SUGGESTION_CHIPS } from '../data/mockData'
+import { SUGGESTION_CHIPS } from '../data/uiConstants'
 import { useAgentStore } from '../store/agentStore'
 import { Icon } from '../components/ui/Icon'
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const startSearch = useAgentStore((s) => s.startSearch)
+  const isLoading = useAgentStore((s) => s.isLoading)
   const [query, setQuery] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
-  const handleStart = (text?: string) => {
+  const handleStart = async (text?: string) => {
     const q = (text ?? query).trim()
-    if (!q) return
-    startSearch(q)
+    if (!q || isLoading) return
     navigate('/workspace')
+    await startSearch(q)
   }
 
   return (
@@ -54,7 +55,7 @@ export function DashboardPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full h-48 bg-transparent border-none text-on-surface font-body-md text-body-md placeholder:text-outline/60 focus:outline-none resize-none custom-scrollbar mb-4"
-            placeholder="Paste your JD or query here (e.g. 'Find React devs with 3+ years experience...')"
+            placeholder="Paste your JD or query here (e.g. 'Find Python devs with 3+ years experience...')"
           />
           <div className="flex items-center justify-between border-t border-outline-variant/30 pt-4 flex-wrap gap-3">
             <div className="flex items-center gap-4">
@@ -74,10 +75,11 @@ export function DashboardPage() {
             </div>
             <button
               type="button"
-              onClick={() => handleStart()}
-              className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-headline-sm text-[16px] hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/10"
+              onClick={() => void handleStart()}
+              disabled={isLoading || !query.trim()}
+              className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-headline-sm text-[16px] hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/10 disabled:opacity-50"
             >
-              Start Analysis
+              {isLoading ? 'Analyzing…' : 'Start Analysis'}
               <Icon name="arrow_forward" className="text-[20px]" />
             </button>
           </div>
@@ -92,8 +94,9 @@ export function DashboardPage() {
               <button
                 key={chip}
                 type="button"
-                onClick={() => handleStart(chip)}
-                className="px-4 py-2 bg-surface-container border border-outline-variant hover:border-primary/40 hover:bg-surface-container-high rounded-lg text-on-surface transition-all font-body-sm text-body-sm"
+                onClick={() => void handleStart(chip)}
+                disabled={isLoading}
+                className="px-4 py-2 bg-surface-container border border-outline-variant hover:border-primary/40 hover:bg-surface-container-high rounded-lg text-on-surface transition-all font-body-sm text-body-sm disabled:opacity-50"
               >
                 &quot;{chip}&quot;
               </button>

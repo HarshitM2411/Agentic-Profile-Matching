@@ -56,6 +56,8 @@ export interface RankingDelta {
   positionChange: number
   scoreChange: number
   reason: string
+  previousRank?: number
+  currentRank?: number
 }
 
 export interface ScoreBreakdown {
@@ -77,6 +79,7 @@ export interface MatchReport {
 }
 
 export interface AgentState {
+  sessionId: string | null
   conversationHistory: ChatMessage[]
   currentIntent: Intent
   canvasView: CanvasView
@@ -92,6 +95,8 @@ export interface AgentState {
   screeningRound: number
   finalDecision: Record<string, Verdict> | null
   topCandidateId: string | null
+  isLoading: boolean
   isReranking: boolean
+  error: string | null
   toast: { message: string; subtitle?: string } | null
 }

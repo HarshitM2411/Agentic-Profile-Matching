@@ -3,37 +3,49 @@ import { useNavigate } from 'react-router-dom'
 import { useAgentStore } from '../store/agentStore'
 import { ChatPanel } from '../components/chat/ChatPanel'
 import { FinalRecommendationView } from '../components/canvas/FinalRecommendationView'
-import { INTERVIEW_QUESTIONS } from '../data/mockData'
 
 export function FinalRecommendationPage() {
   const navigate = useNavigate()
   const {
     conversationHistory,
     sendMessage,
-    startSearch,
     candidateShortlist,
     candidates,
     candidateScores,
     finalDecision,
     topCandidateId,
+    interviewQuestions,
+    isLoading,
     resetSession,
   } = useAgentStore()
 
   useEffect(() => {
-    if (!topCandidateId) {
-      if (candidateShortlist.length === 0) {
-        startSearch('Find React devs with 3+ years')
-      }
-      sendMessage('Give me the final recommendation')
+    if (!isLoading && candidateShortlist.length === 0) {
+      navigate('/')
     }
-  }, [topCandidateId, candidateShortlist.length, startSearch, sendMessage])
+  }, [candidateShortlist.length, isLoading, navigate])
 
   const top = topCandidateId ? candidates[topCandidateId] : null
 
-  if (!top) {
+  if (!top && isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center text-on-surface-variant">
         Loading recommendation...
+      </div>
+    )
+  }
+
+  if (!top) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-on-surface-variant">
+        <p>No recommendation yet. Run a search and ask for a final recommendation.</p>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="text-primary hover:underline font-label-md"
+        >
+          Start a search
+        </button>
       </div>
     )
   }
@@ -51,18 +63,19 @@ export function FinalRecommendationPage() {
       <ChatPanel
         messages={conversationHistory}
         onSend={sendMessage}
-        disabled
+        disabled={isLoading}
       />
       <section className="flex-1 bg-surface-dim overflow-y-auto p-stack-gap-lg custom-scrollbar">
         <FinalRecommendationView
           topCandidate={top}
           score={candidateScores[top.id] ?? top.score}
           otherCandidates={others}
-          onCopyQuestions={() =>
-            navigator.clipboard.writeText(INTERVIEW_QUESTIONS.john_doe?.join('\n') ?? '')
-          }
+          onCopyQuestions={() => {
+            const questions = interviewQuestions[top.id] ?? []
+            navigator.clipboard.writeText(questions.join('\n'))
+          }}
           onNewSearch={() => {
-            resetSession()
+            void resetSession()
             navigate('/')
           }}
         />
